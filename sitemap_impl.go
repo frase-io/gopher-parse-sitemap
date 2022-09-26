@@ -3,6 +3,8 @@ package sitemap
 import (
 	"encoding/xml"
 	"io"
+
+	"golang.org/x/net/html/charset"
 )
 
 func entryParser(decoder *xml.Decoder, se *xml.StartElement, consume EntryConsumer) error {
@@ -45,6 +47,7 @@ type elementParser func(*xml.Decoder, *xml.StartElement) error
 
 func parseLoop(reader io.Reader, parser elementParser) error {
 	decoder := xml.NewDecoder(reader)
+	decoder.CharsetReader = charset.NewReaderLabel
 
 	for {
 		t, tokenError := decoder.Token()
