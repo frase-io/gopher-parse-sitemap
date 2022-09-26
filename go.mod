@@ -1,4 +1,4 @@
-module github.com/oxffaa/gopher-parse-sitemap
+module github.com/frase-io/gopher-parse-sitemap
 
 go 1.13
 
