@@ -3,6 +3,7 @@
 package sitemap
 
 import (
+	"crypto/tls"
 	"encoding/xml"
 	"io"
 	"net/http"
@@ -92,7 +93,17 @@ func ParseFromFile(sitemapPath string, consumer EntryConsumer) error {
 // ParseFromSite downloads sitemap from a site, parses it and for each sitemap
 // entry calls the consumer's function.
 func ParseFromSite(url string, consumer EntryConsumer) error {
-	res, err := http.Get(url)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+
+	client := &http.Client{
+		Transport: tr,
+	}
+	
+	res, err := client.Get(url)
 	if err != nil {
 		return err
 	}
