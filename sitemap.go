@@ -5,8 +5,11 @@ package sitemap
 import (
 	"crypto/tls"
 	"encoding/xml"
+	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 )
@@ -138,11 +141,45 @@ func ParseIndexFromFile(sitemapPath string, consumer IndexEntryConsumer) error {
 // ParseIndexFromSite downloads sitemap index from a site, parses it and for each sitemap
 // index entry calls the consumer's function.
 func ParseIndexFromSite(sitemapURL string, consumer IndexEntryConsumer) error {
-	res, err := http.Get(sitemapURL)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
+    proxyServers := []string{
+		"35.185.80.158",
+		"35.238.68.102",
+		"35.203.87.215",
+		"34.125.28.173",
+    }
 
-	return ParseIndex(res.Body, consumer)
+    randSource := rand.NewSource(time.Now().UnixNano())
+    randGenerator := rand.New(randSource)
+
+    selectedProxy := proxyServers[randGenerator.Intn(len(proxyServers))]
+    proxyURL, err := url.Parse(selectedProxy)
+    if err != nil {
+        return fmt.Errorf("failed to parse proxy URL: %v", err)
+    }
+
+    transport := &http.Transport{
+        Proxy: http.ProxyURL(proxyURL),
+        TLSClientConfig: &tls.Config{
+            InsecureSkipVerify: true,
+        },
+    }
+
+    client := &http.Client{
+        Transport: transport,
+        Timeout:   60 * time.Second,
+    }
+
+    req, err := http.NewRequest("GET", sitemapURL, nil)
+    if err != nil {
+        return fmt.Errorf("failed to create request: %v", err)
+    }
+
+    req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36")
+    res, err := client.Do(req)
+    if err != nil {
+        return fmt.Errorf("failed to make request: %v", err)
+    }
+    defer res.Body.Close()
+
+    return ParseIndex(res.Body, consumer)
 }
