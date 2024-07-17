@@ -95,24 +95,41 @@ func ParseFromFile(sitemapPath string, consumer EntryConsumer) error {
 
 // ParseFromSite downloads sitemap from a site, parses it and for each sitemap
 // entry calls the consumer's function.
-func ParseFromSite(url string, consumer EntryConsumer) error {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	}
+func ParseFromSite(sitemapURL string, proxyServers []string, userAgent string, consumer EntryConsumer) error {
+    randSource := rand.NewSource(time.Now().UnixNano())
+    randGenerator := rand.New(randSource)
 
-	client := &http.Client{
-		Transport: tr,
-	}
-	
-	res, err := client.Get(url)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
+    selectedProxy := proxyServers[randGenerator.Intn(len(proxyServers))]
+    proxyURL, err := url.Parse(selectedProxy)
+    if err != nil {
+        return fmt.Errorf("failed to parse proxy URL: %v", err)
+    }
 
-	return Parse(res.Body, consumer)
+    transport := &http.Transport{
+        Proxy: http.ProxyURL(proxyURL),
+        TLSClientConfig: &tls.Config{
+            InsecureSkipVerify: true,
+        },
+    }
+
+    client := &http.Client{
+        Transport: transport,
+        Timeout:   60 * time.Second,
+    }
+
+    req, err := http.NewRequest("GET", sitemapURL, nil)
+    if err != nil {
+        return fmt.Errorf("failed to create request: %v", err)
+    }
+
+    req.Header.Set("User-Agent", userAgent)
+    res, err := client.Do(req)
+    if err != nil {
+        return fmt.Errorf("failed to make request: %v", err)
+    }
+    defer res.Body.Close()
+
+    return Parse(res.Body, consumer)
 }
 
 // IndexEntryConsumer is a type represents consumer of parsed sitemaps indexes entries
