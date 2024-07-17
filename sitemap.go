@@ -140,7 +140,7 @@ func ParseIndexFromFile(sitemapPath string, consumer IndexEntryConsumer) error {
 
 // ParseIndexFromSite downloads sitemap index from a site, parses it and for each sitemap
 // index entry calls the consumer's function.
-func ParseIndexFromSite(sitemapURL string, consumer IndexEntryConsumer, proxyServers []string) error {
+func ParseIndexFromSite(sitemapURL string, consumer IndexEntryConsumer, proxyServers []string, userAgent string) error {
     randSource := rand.NewSource(time.Now().UnixNano())
     randGenerator := rand.New(randSource)
 
@@ -167,7 +167,7 @@ func ParseIndexFromSite(sitemapURL string, consumer IndexEntryConsumer, proxySer
         return fmt.Errorf("failed to create request: %v", err)
     }
 
-    req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36")
+    req.Header.Set("User-Agent", userAgent)
     res, err := client.Do(req)
     if err != nil {
         return fmt.Errorf("failed to make request: %v", err)
