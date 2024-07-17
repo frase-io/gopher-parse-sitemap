@@ -140,7 +140,7 @@ func ParseIndexFromFile(sitemapPath string, consumer IndexEntryConsumer) error {
 
 // ParseIndexFromSite downloads sitemap index from a site, parses it and for each sitemap
 // index entry calls the consumer's function.
-func ParseIndexFromSite(sitemapURL string, consumer IndexEntryConsumer, proxyServers []string, userAgent string) error {
+func ParseIndexFromSite(sitemapURL string, proxyServers []string, userAgent string, consumer IndexEntryConsumer) error {
     randSource := rand.NewSource(time.Now().UnixNano())
     randGenerator := rand.New(randSource)
 
