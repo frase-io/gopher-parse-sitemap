@@ -122,6 +122,7 @@ func parseWithProxy(sitemapURL string, proxyServers []string, userAgent string, 
 
     transport := &http.Transport{
         Proxy: http.ProxyURL(proxyURL),
+        TLSHandshakeTimeout: 10 * time.Second,
         TLSClientConfig: &tls.Config{
             InsecureSkipVerify: true,
         },
@@ -129,15 +130,23 @@ func parseWithProxy(sitemapURL string, proxyServers []string, userAgent string, 
 
     client := &http.Client{
         Transport: transport,
-        Timeout:   25 * time.Second,
+        Timeout:   20 * time.Second,
     }
 
     return makeRequest(client, sitemapURL, userAgent, consumer)
 }
 
 func parseWithoutProxy(sitemapURL string, userAgent string, consumer EntryConsumer) error {
+    transport := &http.Transport{
+        TLSHandshakeTimeout: 10 * time.Second,
+        TLSClientConfig: &tls.Config{
+            InsecureSkipVerify: true,
+        },
+    }
+    
     client := &http.Client{
-        Timeout: 60 * time.Second,
+        Transport: transport,
+        Timeout: 20 * time.Second,
     }
 
     return makeRequest(client, sitemapURL, userAgent, consumer)
