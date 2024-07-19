@@ -7,7 +7,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-    "log"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -130,11 +129,11 @@ func ParseFromSite(sitemapURL string, proxyServers []string, userAgent string, c
     }
     defer res.Body.Close()
 
-    var body []byte
+    /*var body []byte
     body, err = io.ReadAll(res.Body)
     if err == nil {
         log.Println(string(body))
-    }
+    }*/
 
 
     return Parse(res.Body, consumer)
