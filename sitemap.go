@@ -123,6 +123,7 @@ func parseWithProxy(sitemapURL string, proxyServers []string, userAgent string, 
     selectedProxy := proxyServers[randGenerator.Intn(len(proxyServers))]
     proxyURL, err := url.Parse(selectedProxy)
     if err != nil {
+        log.Println(err)
         return fmt.Errorf("failed to parse proxy URL: %v", err)
     }
 
@@ -167,6 +168,7 @@ func makeRequest(client *http.Client, sitemapURL string, userAgent string, consu
     req.Header.Set("User-Agent", userAgent)
     res, err := client.Do(req)
     if err != nil {
+        log.Println(err)
         return fmt.Errorf("failed to make request: %v", err)
     }
     defer res.Body.Close()
