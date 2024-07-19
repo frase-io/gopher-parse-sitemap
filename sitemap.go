@@ -7,6 +7,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+    "io/ioutil"
     "log"
 	"math/rand"
     "net"
@@ -78,7 +79,12 @@ type EntryConsumer func(Entry) error
 // Parse parses data which provides by the reader and for each sitemap
 // entry calls the consumer's function.
 func Parse(reader io.Reader, consumer EntryConsumer) error {
-	return parseLoop(reader, func(d *xml.Decoder, se *xml.StartElement) error {
+	body, err := ioutil.ReadAll(reader)
+    if err == nil {
+        log.Println(string(body))
+    }
+    
+    return parseLoop(reader, func(d *xml.Decoder, se *xml.StartElement) error {
 		return entryParser(d, se, consumer)
 	})
 }
