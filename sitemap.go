@@ -5,14 +5,8 @@ package sitemap
 import (
 	"crypto/tls"
 	"encoding/xml"
-	"fmt"
 	"io"
-    "io/ioutil"
-    "log"
-	"math/rand"
-    "net"
 	"net/http"
-	"net/url"
 	"os"
 	"time"
 )
@@ -79,12 +73,7 @@ type EntryConsumer func(Entry) error
 // Parse parses data which provides by the reader and for each sitemap
 // entry calls the consumer's function.
 func Parse(reader io.Reader, consumer EntryConsumer) error {
-	body, err := ioutil.ReadAll(reader)
-    if err == nil {
-        log.Println(string(body))
-    }
-    
-    return parseLoop(reader, func(d *xml.Decoder, se *xml.StartElement) error {
+	return parseLoop(reader, func(d *xml.Decoder, se *xml.StartElement) error {
 		return entryParser(d, se, consumer)
 	})
 }
@@ -103,91 +92,24 @@ func ParseFromFile(sitemapPath string, consumer EntryConsumer) error {
 
 // ParseFromSite downloads sitemap from a site, parses it and for each sitemap
 // entry calls the consumer's function.
-func ParseFromSite(sitemapURL string, proxyServers []string, userAgent string, consumer EntryConsumer) error {
-    // First attempt with proxy
-    err := parseWithProxy(sitemapURL, proxyServers, userAgent, consumer)
-    if err != nil {
-        if isTimeoutError(err) {
-            log.Println("Proxy request timed out. Falling back to direct request.")
-            return parseWithoutProxy(sitemapURL, userAgent, consumer)
-        }
-        return err
-    }
-    return nil
-}
+func ParseFromSite(url string, consumer EntryConsumer) error {
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
 
-func parseWithProxy(sitemapURL string, proxyServers []string, userAgent string, consumer EntryConsumer) error {
-    randSource := rand.NewSource(time.Now().UnixNano())
-    randGenerator := rand.New(randSource)
+	client := &http.Client{
+		Transport: tr,
+	}
+	
+	res, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
 
-    selectedProxy := proxyServers[randGenerator.Intn(len(proxyServers))]
-    proxyURL, err := url.Parse(selectedProxy)
-    if err != nil {
-        log.Println(err)
-        return fmt.Errorf("failed to parse proxy URL: %v", err)
-    }
-
-    transport := &http.Transport{
-        Proxy: http.ProxyURL(proxyURL),
-        TLSHandshakeTimeout: 10 * time.Second,
-        TLSClientConfig: &tls.Config{
-            InsecureSkipVerify: true,
-        },
-    }
-
-    client := &http.Client{
-        Transport: transport,
-        Timeout:   20 * time.Second,
-    }
-
-    return makeRequest(client, sitemapURL, userAgent, consumer)
-}
-
-func parseWithoutProxy(sitemapURL string, userAgent string, consumer EntryConsumer) error {
-    transport := &http.Transport{
-        TLSHandshakeTimeout: 10 * time.Second,
-        TLSClientConfig: &tls.Config{
-            InsecureSkipVerify: true,
-        },
-    }
-    
-    client := &http.Client{
-        Transport: transport,
-        Timeout: 20 * time.Second,
-    }
-
-    return makeRequest(client, sitemapURL, userAgent, consumer)
-}
-
-func makeRequest(client *http.Client, sitemapURL string, userAgent string, consumer EntryConsumer) error {
-    req, err := http.NewRequest("GET", sitemapURL, nil)
-    if err != nil {
-        return fmt.Errorf("failed to create request: %v", err)
-    }
-
-    req.Header.Set("User-Agent", userAgent)
-    res, err := client.Do(req)
-    if err != nil {
-        log.Println(err)
-        return fmt.Errorf("failed to make request: %v", err)
-    }
-    defer res.Body.Close()
-    
-    return Parse(res.Body, consumer)
-}
-
-func isTimeoutError(err error) bool {
-    if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-        log.Println("Timeout error")
-        return true
-    }
-    if urlErr, ok := err.(*url.Error); ok {
-        if netErr, ok := urlErr.Err.(net.Error); ok && netErr.Timeout() {
-            log.Println("Timeout error")
-            return true
-        }
-    }
-    return false
+	return Parse(res.Body, consumer)
 }
 
 // IndexEntryConsumer is a type represents consumer of parsed sitemaps indexes entries
@@ -215,39 +137,12 @@ func ParseIndexFromFile(sitemapPath string, consumer IndexEntryConsumer) error {
 
 // ParseIndexFromSite downloads sitemap index from a site, parses it and for each sitemap
 // index entry calls the consumer's function.
-func ParseIndexFromSite(sitemapURL string, proxyServers []string, userAgent string, consumer IndexEntryConsumer) error {
-    randSource := rand.NewSource(time.Now().UnixNano())
-    randGenerator := rand.New(randSource)
+func ParseIndexFromSite(sitemapURL string, consumer IndexEntryConsumer) error {
+	res, err := http.Get(sitemapURL)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
 
-    selectedProxy := proxyServers[randGenerator.Intn(len(proxyServers))]
-    proxyURL, err := url.Parse(selectedProxy)
-    if err != nil {
-        return fmt.Errorf("failed to parse proxy URL: %v", err)
-    }
-
-    transport := &http.Transport{
-        Proxy: http.ProxyURL(proxyURL),
-        TLSClientConfig: &tls.Config{
-            InsecureSkipVerify: true,
-        },
-    }
-
-    client := &http.Client{
-        Transport: transport,
-        Timeout:   60 * time.Second,
-    }
-
-    req, err := http.NewRequest("GET", sitemapURL, nil)
-    if err != nil {
-        return fmt.Errorf("failed to create request: %v", err)
-    }
-
-    req.Header.Set("User-Agent", userAgent)
-    res, err := client.Do(req)
-    if err != nil {
-        return fmt.Errorf("failed to make request: %v", err)
-    }
-    defer res.Body.Close()
-
-    return ParseIndex(res.Body, consumer)
+	return ParseIndex(res.Body, consumer)
 }
