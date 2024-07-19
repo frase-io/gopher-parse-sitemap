@@ -7,7 +7,9 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+    "log"
 	"math/rand"
+    "net"
 	"net/http"
 	"net/url"
 	"os"
@@ -96,6 +98,19 @@ func ParseFromFile(sitemapPath string, consumer EntryConsumer) error {
 // ParseFromSite downloads sitemap from a site, parses it and for each sitemap
 // entry calls the consumer's function.
 func ParseFromSite(sitemapURL string, proxyServers []string, userAgent string, consumer EntryConsumer) error {
+    // First attempt with proxy
+    err := parseWithProxy(sitemapURL, proxyServers, userAgent, consumer)
+    if err != nil {
+        if isTimeoutError(err) {
+            log.Println("Proxy request timed out. Falling back to direct request.")
+            return parseWithoutProxy(sitemapURL, userAgent, consumer)
+        }
+        return err
+    }
+    return nil
+}
+
+func parseWithProxy(sitemapURL string, proxyServers []string, userAgent string, consumer EntryConsumer) error {
     randSource := rand.NewSource(time.Now().UnixNano())
     randGenerator := rand.New(randSource)
 
@@ -114,9 +129,21 @@ func ParseFromSite(sitemapURL string, proxyServers []string, userAgent string, c
 
     client := &http.Client{
         Transport: transport,
-        Timeout:   60 * time.Second,
+        Timeout:   25 * time.Second,
     }
 
+    return makeRequest(client, sitemapURL, userAgent, consumer)
+}
+
+func parseWithoutProxy(sitemapURL string, userAgent string, consumer EntryConsumer) error {
+    client := &http.Client{
+        Timeout: 60 * time.Second,
+    }
+
+    return makeRequest(client, sitemapURL, userAgent, consumer)
+}
+
+func makeRequest(client *http.Client, sitemapURL string, userAgent string, consumer EntryConsumer) error {
     req, err := http.NewRequest("GET", sitemapURL, nil)
     if err != nil {
         return fmt.Errorf("failed to create request: %v", err)
@@ -130,6 +157,18 @@ func ParseFromSite(sitemapURL string, proxyServers []string, userAgent string, c
     defer res.Body.Close()
     
     return Parse(res.Body, consumer)
+}
+
+func isTimeoutError(err error) bool {
+    if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+        return true
+    }
+    if urlErr, ok := err.(*url.Error); ok {
+        if netErr, ok := urlErr.Err.(net.Error); ok && netErr.Timeout() {
+            return true
+        }
+    }
+    return false
 }
 
 // IndexEntryConsumer is a type represents consumer of parsed sitemaps indexes entries
