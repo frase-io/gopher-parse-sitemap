@@ -178,10 +178,12 @@ func makeRequest(client *http.Client, sitemapURL string, userAgent string, consu
 
 func isTimeoutError(err error) bool {
     if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+        log.Println("Timeout error")
         return true
     }
     if urlErr, ok := err.(*url.Error); ok {
         if netErr, ok := urlErr.Err.(net.Error); ok && netErr.Timeout() {
+            log.Println("Timeout error")
             return true
         }
     }
